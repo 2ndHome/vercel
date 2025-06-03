@@ -1,28 +1,31 @@
-const express = require('express');
 const crypto = require('crypto');
 
-const app = express();
-app.use(express.json());
-
 const CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET;
-const CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
 
-function verifySignature(req, res, buf) {
-  const signature = req.get('X-Line-Signature');
+function verifySignature(req) {
+  const signature = req.headers['x-line-signature'];
+  const buf = JSON.stringify(req.body);
   const hash = crypto.createHmac('SHA256', CHANNEL_SECRET).update(buf).digest('base64');
   if (signature !== hash) {
     throw new Error('Invalid signature');
   }
 }
 
-app.post('/webhook', express.json({ verify: verifySignature }), (req, res) => {
+export default function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).send('Method Not Allowed');
+  }
+
+  try {
+    verifySignature(req);
+  } catch (err) {
+    console.error('Signature verification failed:', err.message);
+    return res.status(401).send('Unauthorized');
+  }
+
   console.log('Received webhook:', JSON.stringify(req.body));
 
-  // 回應 200 OK
-  res.sendStatus(200);
-});
+  // 處理 webhook 事件的邏輯放這裡
 
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-});
+  return res.status(200).send('OK');
+}
