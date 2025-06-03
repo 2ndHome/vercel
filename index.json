@@ -1,0 +1,28 @@
+const express = require('express');
+const crypto = require('crypto');
+
+const app = express();
+app.use(express.json());
+
+const CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET;
+const CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+
+function verifySignature(req, res, buf) {
+  const signature = req.get('X-Line-Signature');
+  const hash = crypto.createHmac('SHA256', CHANNEL_SECRET).update(buf).digest('base64');
+  if (signature !== hash) {
+    throw new Error('Invalid signature');
+  }
+}
+
+app.post('/webhook', express.json({ verify: verifySignature }), (req, res) => {
+  console.log('Received webhook:', JSON.stringify(req.body));
+
+  // 回應 200 OK
+  res.sendStatus(200);
+});
+
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+});
